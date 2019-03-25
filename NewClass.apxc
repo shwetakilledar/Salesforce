@@ -1,0 +1,278 @@
+public class NewClass {
+	
+	//Method for adding new Account
+    public void insertNewAccounts(List<Account> a) {
+       	Database.SaveResult[] srList = Database.insert(a, false);
+      	List<Id> newIds = new List<Id>();
+        for (Database.SaveResult sr : srList) {
+
+          if (sr.isSuccess()) {
+
+            // Operation was successful, so get the ID of the record that was processed
+			newIds.add(sr.getId());
+            //System.debug('Successfully inserted account. Account ID: ' + sr.getId());
+
+         }
+
+        else {
+
+              // Operation failed, so get all errors                
+
+             for(Database.Error err : sr.getErrors()) {
+
+               System.debug('The following error has occurred.');                    
+
+               System.debug(err.getStatusCode() + ': ' + err.getMessage());
+
+               System.debug('Account fields that affected this error: ' + err.getFields());
+
+              }
+            }
+        }
+        
+        List<Account> gotAcc = [Select Id , OwnerId from Account where Id in : newIds];
+       
+		
+    }
+    
+    
+    	
+	//Method for adding new Contacts
+    public void insertNewContacts(List<Contact> c) {
+       	Database.SaveResult[] srList = Database.insert(c, false);
+      	List<Id> newIds = new List<Id>();
+        for (Database.SaveResult sr : srList) {
+
+          if (sr.isSuccess()) {
+
+            // Operation was successful, so get the ID of the record that was processed
+			newIds.add(sr.getId());
+            //System.debug('Successfully inserted account. Account ID: ' + sr.getId());
+
+         }
+
+        else {
+
+              // Operation failed, so get all errors                
+
+             for(Database.Error err : sr.getErrors()) {
+
+               System.debug('The following error has occurred.');                    
+
+               System.debug(err.getStatusCode() + ': ' + err.getMessage());
+
+               System.debug('Account fields that affected this error: ' + err.getFields());
+
+              }
+            }
+        }
+        
+        List<Contact> gotCon = [Select Id , FirstName, LastName, ACcountId from Contact where Id in : newIds];
+       
+		SYstem.debug('New Conatcs'+gotCon);
+    }
+    
+    
+    //Method for adding new Oppo
+    public void insertNewOppos(List<Opportunity> o) {
+       	Database.SaveResult[] srList = Database.insert(o, false);
+      	List<Id> newIds = new List<Id>();
+        for (Database.SaveResult sr : srList) {
+
+          if (sr.isSuccess()) {
+
+            // Operation was successful, so get the ID of the record that was processed
+			newIds.add(sr.getId());
+            //System.debug('Successfully inserted account. Account ID: ' + sr.getId());
+
+         }
+
+        else {
+			continue;
+              // Operation failed, so get all errors                
+
+             for(Database.Error err : sr.getErrors()) {
+
+               System.debug('The following error has occurred.');                    
+
+               System.debug(err.getStatusCode() + ': ' + err.getMessage());
+
+               System.debug('Account fields that affected this error: ' + err.getFields());
+
+              }
+            }
+        }
+        
+        List<Opportunity> gotCon = [Select Id  from Opportunity where Id in : newIds];
+       
+		SYstem.debug('New Conatcs'+gotCon);
+    }
+    
+    
+    
+    public void createContact(List<Lead> leads){
+        System.debug('In create contacts');
+        List<sObject> newContactList = new List<sObject>();
+        List<Account>            accounts     =  [Select Id, Name, OwnerId from Account ];
+        List<Contact> ids = [Select Accountid from Contact];
+        List<String> stringIds = new List<String>();
+        
+        for(Contact cct: ids){
+        	stringIds.add(String.valueOf(cct.accountid));    
+        }
+        
+        for(Lead l: leads){  
+            for(Account a: accounts ){
+                if(a.Name.trim().equals(l.Company.trim()) && !stringIds.contains(String.valueOf(a.Id))){
+                   	Contact cont = new Contact();
+                   	cont.FirstName = l.FirstName;
+        			cont.LastName = l.LastName;
+        			cont.Email = l.Email;
+        			cont.Phone = l.Phone;
+        			cont.Title = l.Title;
+        			cont.AccountId = a.Id;
+        			cont.OwnerId = a.OwnerId;
+                    newContactList.add(cont);
+                }
+            }
+        } 
+        
+        try{
+          insertNewContacts(newContactList);
+        }catch(Exception e){
+            System.debug('In Conatact Exception'+e);
+        }
+          
+    }
+    
+    public void createOpp(List<Lead> leads){
+        System.debug('In create Opportunity');
+        List<sObject> newoppList = new List<sObject>();
+        List<Account> lstAccounts = new List<Account>();
+		Set<String> setAccountName = new Set<String>();
+		
+        lstAccounts = [select id,Name from account] ;
+       
+        for (Integer i = 0; i< lstAccounts.size(); i++){
+            setAccountName.add(lstAccounts[i].Name.trim()); 
+        } // contains distict accounts
+        
+        List<String> listAccName = new List<String>(setAccountName);
+        List<Account> newListOfAcc = [select Id, Name from Account where Name in :listAccName];
+        List<Id> newAccIdList = new List<Id>();
+        for (Integer i = 0; i< newListOfAcc.size(); i++){
+            newAccIdList.add(newListOfAcc[i].Id);
+        } // contains distict accounts
+        
+        List<Contact> newConList =  new List<Contact>();
+        newConList = [select Id, AccountId from Contact where AccountId in : newAccIdList];
+
+		List<Opportunity> ids = [Select Accountid from Opportunity];
+        List<String> stringIds = new List<String>();
+        
+        for(Opportunity cct: ids){
+        	stringIds.add(String.valueOf(cct.accountid));    
+        }
+        
+         List<Contact> contids = [Select Accountid from Contact];
+        List<String> stringContIds = new List<String>();
+        
+        for(Contact cct: contids){
+        	stringContIds.add(String.valueOf(cct.accountid));    
+        }
+	
+	        
+        Integer count=0;
+        for(Lead l: leads){           
+         	for(Account x:newListOfAcc){
+               Id newId;
+                     if(x.Name.trim().equals(l.Company.trim()) && stringContIds.contains(String.valueOf(x.Id)) && !stringIds.contains(String.valueOf(x.Id))){
+                        Opportunity oppo = new Opportunity();
+                         oppo.AccountId = x.Id;
+                         oppo.OwnerId = l.OwnerId;
+                         oppo.StageName = l.Status; // status -> stage mapping different 
+                       	
+                         oppo.Description = l.Description;
+                       
+                         oppo.CloseDate = date.today().addMonths(8);
+                         oppo.Name = x.Name.trim() +' - solution opportunity';
+                        
+                        
+                         for(Contact conts: newConList){
+                             if(String.valueOf(x.Id).equals(String.valueOf(conts.accountId))){
+                                 newId = conts.Id;
+                             }
+                         }
+                       
+                         oppo.Contact__c = newId;                        
+                         oppo.Type = 'NRG Solution';
+                         newoppList.add(oppo);
+                     }
+               	                  
+                   
+               }
+            }
+        
+        System.debug('Here');
+        try{
+             insertNewOppos(newoppList);
+            System.debug('added');
+        }catch(Exception e){
+			 System.debug('exception................'+e);            
+        }
+       	
+       
+        
+
+		
+    }
+    
+ 	
+	//Main method    
+    public void testMethod1 () {
+        List<Account>            acc     =  [Select Name, ownerid from Account ];
+        List<Lead> 				 leads   =  [SELECT Id, Company, OwnerId, Name, FirstName, LastName, Email, Phone, Title, Status, Reason_for_state_change__c , State_Change_Description__c, 
+        					 	          		NRG_Rep__c, Product__c, Potential_Deal_Size__c, Line_Description__C, Notes_from_NRG_on_opportunity__C, Description, Latest_updates__c, lastactivitydate FROM Lead limit 300];
+        List<sObject> newAccList = new List<sObject>();
+        
+        //Create Unique Accounts
+        for(Lead a: leads){
+            boolean flag = false;
+            // checking if lead (Company) record already exits in an account 
+            // if yes then skip 
+            // else create new account , contact , and opportunity for the particular lead (Company) 
+           
+         	for(Account x: acc){
+                if(x.Name.trim().equals(a.Company.trim())){
+                    flag = true;
+                    break;
+               }
+            }
+            if(!flag){
+            	Account newAcc = new Account();
+               	newAcc.Name = a.Company;
+                newAcc.OwnerId = a.OwnerId;
+                newAccList.add(newAcc);     
+            }
+        }
+        
+        try{
+            insertNewAccounts(newAccList);
+            system.debug('returned accounts');
+            
+			// Create Contact objects from returned Accounts Object
+            //call create contact method
+            createContact(leads);
+			System.debug('created contacts');
+            
+            //call create opportunnities method
+            createOpp(leads);
+            System.debug('Opp created');
+        }catch(Exception e){
+			system.debug(e);
+        }
+        
+        
+                            
+    }
+}
